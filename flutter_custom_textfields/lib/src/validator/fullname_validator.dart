@@ -1,9 +1,8 @@
 class FullnameValidator {
   static final RegExp _defaultFullNameRegex = RegExp(r'^[a-zA-Z\s]{2,50}$');
   static RegExp? _customFullNameRegex;
-
-  static void setCustomPattern(String pattern) {
-    _customFullNameRegex = RegExp(pattern);
+  static void setCustomPattern(RegExp pattern) {
+    _customFullNameRegex = pattern;
   }
 
   static void resetToDefaultPattern() {

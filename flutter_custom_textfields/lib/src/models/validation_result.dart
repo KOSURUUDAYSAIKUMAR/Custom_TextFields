@@ -1,11 +1,22 @@
 class ValidationResult {
   final bool isValid;
   final String? errorMessage;
-  ValidationResult({required this.isValid, this.errorMessage});
-  factory ValidationResult.valid() {
-    return ValidationResult(isValid: true);
+
+  ValidationResult.valid() : isValid = true, errorMessage = null;
+  ValidationResult.invalid(this.errorMessage) : isValid = false;
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is ValidationResult &&
+        other.isValid == isValid &&
+        other.errorMessage == errorMessage;
   }
-  factory ValidationResult.invalid(String message) {
-    return ValidationResult(isValid: false, errorMessage: message);
-  }
+
+  @override
+  int get hashCode => isValid.hashCode ^ errorMessage.hashCode;
+
+  @override
+  String toString() =>
+      'ValidationResult(isValid: $isValid, errorMessage: $errorMessage)';
 }

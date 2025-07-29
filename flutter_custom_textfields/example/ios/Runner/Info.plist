@@ -47,9 +47,15 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>Access to find out pest detection.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-    <string>This app needs your location to provide accurate services while in use.</string>
-	<key>NSLocationAlwaysUsageDescription</key>
-   <string>This app requires your location even when running in the background.</string>
+<key>NSLocationWhenInUseUsageDescription</key>
+<string>This app needs access to your location to tag photos</string>
+<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+<string>This app needs access to your location to tag photos even when not in use</string>
+<key>NSLocationAlwaysUsageDescription</key>
+<string>This app needs access to your location to tag photos</string>
+<key>NSPhotoLibraryAddUsageDescription</key>
+<string>Save images to photos</string>
+<key>NSPhotoLibraryUsageDescription</key>
+<string>Save images to photos</string>
 </dict>
 </plist>

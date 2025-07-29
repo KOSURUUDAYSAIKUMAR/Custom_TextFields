@@ -16,6 +16,14 @@ class CountryValidationRule {
     this.minLength,
     this.maxLength,
   });
+  @override
+  String toString() {
+    return 'CountryValidationRule('
+        'regex: $regex, '
+        'errorMessage: $errorMessage, '
+        'minLength: $minLength, '
+        'maxLength: $maxLength)';
+  }
 }
 
 class PhoneValidationConfig {

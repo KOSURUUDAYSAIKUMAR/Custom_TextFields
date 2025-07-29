@@ -1,37 +1,75 @@
 import 'package:flutter/services.dart';
 
 class UsernameInputFormatter extends TextInputFormatter {
-  final RegExp allowedPattern;
+  final RegExp? pattern;
   final bool preventConsecutiveSpaces;
+  final bool preventLeadingTrailingSpaces; // New property
+
   UsernameInputFormatter({
-    RegExp? pattern,
+    this.pattern,
     this.preventConsecutiveSpaces = true,
-  }) : allowedPattern = pattern ?? RegExp(r'[A-Za-z0-9 ]');
+    this.preventLeadingTrailingSpaces = true, // Initialize new property
+  });
 
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    String filteredText = newValue.text
-        .split('')
-        .where((char) => allowedPattern.hasMatch(char))
-        .join('');
+    if (newValue.text.isEmpty) {
+      return newValue;
+    }
 
+    final RegExp effectiveFormatterPattern =
+        pattern ??
+        RegExp(
+          r'[a-zA-Z0-9_.]',
+        ); // Default: alphanumeric, underscore, dot. Common for usernames.
+
+    String newText = newValue.text;
+
+    // 1. Prevent consecutive spaces (formatter applies this immediately)
     if (preventConsecutiveSpaces) {
-      while (filteredText.contains('  ')) {
-        filteredText = filteredText.replaceAll('  ', ' ');
+      newText = newText.replaceAll(RegExp(r'\s\s+'), ' ');
+    }
+
+    // 2. Filter characters based on pattern
+    final StringBuffer filteredText = StringBuffer();
+    for (int i = 0; i < newText.length; i++) {
+      if (effectiveFormatterPattern.hasMatch(newText[i])) {
+        filteredText.write(newText[i]);
       }
     }
-    int selectionIndex = newValue.selection.end;
-    int difference = newValue.text.length - filteredText.length;
-    selectionIndex = selectionIndex - difference;
-    if (selectionIndex < 0) {
-      selectionIndex = 0;
+    newText = filteredText.toString();
+
+    // 3. Prevent leading/trailing spaces (formatter applies this immediately)
+    if (preventLeadingTrailingSpaces) {
+      // If a space is at the start, and it's not the only char, or if it was just added at start
+      if (newText.startsWith(' ') &&
+          (newText.length > 1 || oldValue.text.isEmpty)) {
+        newText = newText.trimLeft();
+      }
+      // If a space is at the end, and it wasn't there before
+      if (newText.endsWith(' ') && !oldValue.text.endsWith(' ')) {
+        newText = newText.trimRight();
+      }
     }
-    return TextEditingValue(
-      text: filteredText,
-      selection: TextSelection.collapsed(offset: selectionIndex),
-    );
+
+    // Reconstruct TextEditingValue based on the filtered and trimmed text
+    // Adjust cursor position if text changed
+    if (newText != newValue.text) {
+      // Calculate new selection offset based on changes
+      int newOffset = newValue.selection.end;
+      if (newOffset > newText.length) {
+        newOffset = newText.length;
+      }
+      return TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(offset: newOffset),
+        composing: TextRange.empty,
+      );
+    }
+
+    return newValue;
   }
 }

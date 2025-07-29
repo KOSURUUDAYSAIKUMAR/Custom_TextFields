@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_custom_textfields/flutter_custom_textfields.dart';
 
 class PhoneValidator {
@@ -10,6 +11,7 @@ class PhoneValidator {
     final rule =
         config.countryValidationRules[countryCode] ??
         config.defaultValidationRule;
+    debugPrint(" country code configuration rule ${rule.toString()}");
     if (rule == null) {
       return ValidationResult.valid();
     }
@@ -18,14 +20,12 @@ class PhoneValidator {
     }
     if (rule.minLength != null && phoneNumber.length < rule.minLength!) {
       return ValidationResult.invalid(
-        rule.errorMessage ??
-            'Phone number must be at least ${rule.minLength} digits',
+        'Phone number must be at least ${rule.minLength} digits',
       );
     }
     if (rule.maxLength != null && phoneNumber.length > rule.maxLength!) {
       return ValidationResult.invalid(
-        rule.errorMessage ??
-            'Phone number must be at most ${rule.maxLength} digits',
+        'Phone number must be at most ${rule.maxLength} digits',
       );
     }
     if (!RegExp(rule.regex).hasMatch(phoneNumber)) {

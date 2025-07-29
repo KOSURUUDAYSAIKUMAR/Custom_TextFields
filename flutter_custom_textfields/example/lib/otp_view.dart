@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_textfields/flutter_custom_textfields.dart';
 
@@ -14,19 +15,23 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
   String _enteredOTP = '';
   String? _errorMessage;
   bool _isVerifying = false;
-  final String _correctOTP = '1234';
-  bool _isFirstInput = true;
-  int _activeIndex = 0;
+  String _correctOTP = '';
+  int otpLength = 6;
 
-  // Configuration options
-  OTPAnimationType _animationType = OTPAnimationType.scale;
-  OTPInputType _inputType = OTPInputType.numeric;
-  String _placeholderText = '*';
-  bool _obscureText = false;
-  bool _enableActiveFill = true;
+  final OTPAnimationType _animationType = OTPAnimationType.scale;
+  final OTPInputType _inputType = OTPInputType.numeric;
+  final String _placeholderText = '*';
+  final bool _obscureText = false;
+  final bool _enableActiveFill = true;
 
-  String _getPlaceholderForIndex(int index) {
-    return index == _activeIndex ? '' : _placeholderText;
+  @override
+  void initState() {
+    super.initState();
+    if (otpLength == 4) {
+      _correctOTP = "1234";
+    } else if (otpLength == 6) {
+      _correctOTP = "123456";
+    }
   }
 
   @override
@@ -38,8 +43,8 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
           _buildOTPFieldSection(),
           const SizedBox(height: 32),
           _buildVerifyButton(),
-          // const SizedBox(height: 24),
-          // _buildActionButtons(),
+          const SizedBox(height: 24),
+          _buildActionButtons(),
         ],
       ),
     );
@@ -48,29 +53,33 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
   Widget _buildOTPFieldSection() {
     final screenWidth = MediaQuery.of(context).size.width;
     final availableWidth = screenWidth - (24 * 2);
-    final fieldWidth = (availableWidth - (24 * 3)) / 4;
-
+    var fieldWidth = max(40.0, (availableWidth - (24 * 3)) / otpLength);
+    if (otpLength == 6) {
+      fieldWidth -= 5;
+    }
     return Column(
       children: [
         AdvancedOTPField(
           key: _otpFieldKey,
-          length: 4,
+          length: otpLength,
           inputType: _inputType,
           animationType: _animationType,
           obscureText: _obscureText,
           enableActiveFill: _enableActiveFill,
           autoFocus: false,
           fieldStyle: OTPFieldStyle(
+            // width: otpLength == 6 ? 35 : fieldWidth,
+            // height: otpLength == 6 ? 35 : fieldWidth,
             width: fieldWidth,
-            height: 70,
+            height: fieldWidth,
             margin: const EdgeInsets.symmetric(horizontal: 10),
-            placeholderText: '*',
-            textStyle: const TextStyle(
-              fontSize: 24,
+            placeholderText: _placeholderText,
+            textStyle: TextStyle(
+              fontSize: otpLength == 6 ? 12 : 24,
               fontWeight: FontWeight.bold,
             ),
             placeholderStyle: TextStyle(
-              fontSize: 20,
+              fontSize: otpLength == 6 ? 10 : 20,
               fontWeight: FontWeight.w300,
               color: Colors.grey[400],
             ),
@@ -85,7 +94,7 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
             borderWidth: 1.5,
             activeColor: Colors.grey[300],
             inactiveColor: Colors.grey[300],
-            selectedColor: _isFirstInput ? Colors.grey[300] : Colors.blue,
+            selectedColor: Colors.blue,
             errorColor: Colors.red[400],
             backgroundColor: Colors.grey[50],
             boxShadow: BoxShadow(
@@ -99,11 +108,10 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
             setState(() {
               _enteredOTP = value;
               _errorMessage = null;
-              if (_isFirstInput && value.isNotEmpty) {
-                _isFirstInput = false;
-              }
-              // Update active index based on input length
-              _activeIndex = value.length;
+              // if (_isFirstInput && value.isNotEmpty) {
+              //   _isFirstInput = false;
+              // }
+              // _activeIndex = value.length;
             });
           },
           onCompleted: (value) {
@@ -120,7 +128,7 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
       height: 56,
       child: ElevatedButton(
         onPressed:
-            _enteredOTP.length == 4 &&
+            _enteredOTP.length == otpLength &&
                     !_isVerifying // Enable when 4 digits entered
                 ? () => _verifyOTP(_enteredOTP)
                 : null,
@@ -201,181 +209,6 @@ class _AdvancedOTPDemoScreenState extends State<AdvancedOTPDemoScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildFeaturesDemo() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Demo Features',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _buildFeatureChip('Auto-fill Support', Icons.auto_fix_high),
-              _buildFeatureChip('Paste Support', Icons.content_paste),
-              _buildFeatureChip('Custom Animations', Icons.animation),
-              _buildFeatureChip('Error Handling', Icons.error_outline),
-              _buildFeatureChip('Customizable UI', Icons.palette),
-              _buildFeatureChip('Accessibility', Icons.accessibility),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFeatureChip(String label, IconData icon) {
-    return Chip(
-      avatar: Icon(icon, size: 16),
-      label: Text(label, style: const TextStyle(fontSize: 12)),
-      backgroundColor: Theme.of(
-        context,
-      ).colorScheme.primaryContainer.withOpacity(0.3),
-      side: BorderSide.none,
-    );
-  }
-
-  void _showConfigDialog() {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Configuration'),
-            content: StatefulBuilder(
-              builder:
-                  (context, setDialogState) => Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Animation Type
-                      const Text(
-                        'Animation Type:',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButton<OTPAnimationType>(
-                        value: _animationType,
-                        isExpanded: true,
-                        items:
-                            OTPAnimationType.values.map((type) {
-                              return DropdownMenuItem(
-                                value: type,
-                                child: Text(type.name.toUpperCase()),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            _animationType = value!;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Input Type
-                      const Text(
-                        'Input Type:',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      DropdownButton<OTPInputType>(
-                        value: _inputType,
-                        isExpanded: true,
-                        items:
-                            OTPInputType.values.map((type) {
-                              return DropdownMenuItem(
-                                value: type,
-                                child: Text(type.name.toUpperCase()),
-                              );
-                            }).toList(),
-                        onChanged: (value) {
-                          setDialogState(() {
-                            _inputType = value!;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Placeholder Text
-                      const Text(
-                        'Placeholder:',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 8),
-                      TextFormField(
-                        initialValue: _placeholderText,
-                        decoration: const InputDecoration(
-                          hintText: 'Enter placeholder character',
-                          border: OutlineInputBorder(),
-                          contentPadding: EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                        ),
-                        maxLength: 1,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            _placeholderText = value;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Toggle Options
-                      SwitchListTile(
-                        title: const Text('Obscure Text'),
-                        value: _obscureText,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            _obscureText = value;
-                          });
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      SwitchListTile(
-                        title: const Text('Active Fill'),
-                        value: _enableActiveFill,
-                        onChanged: (value) {
-                          setDialogState(() {
-                            _enableActiveFill = value;
-                          });
-                        },
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                    ],
-                  ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  setState(() {
-                    // Apply changes
-                  });
-                  Navigator.pop(context);
-                  _otpFieldKey.currentState?.clear();
-                },
-                child: const Text('Apply'),
-              ),
-            ],
-          ),
     );
   }
 

@@ -1,41 +1,47 @@
 class UsernameValidator {
-  static final RegExp defaultPattern = RegExp(r'^[a-zA-Z0-9_]{3,20}$');
-
   static String? validateUsername(
     String? value, {
     RegExp? pattern,
     String? patternErrorMessage,
+    String? requiredUsernameMessage, // New parameter for empty message
     bool preventConsecutiveSpaces = true,
     bool preventLeadingTrailingSpaces = true,
+    required int minLength,
+    required int maxLength,
   }) {
     if (value == null || value.isEmpty) {
-      return 'Username is required';
+      return requiredUsernameMessage ?? 'Username is required.';
     }
 
-    // Check minimum length
-    if (value.length < 3) {
-      return 'Username must be at least 3 characters';
+    // Apply trimming for validation before other checks if leading/trailing spaces are prevented
+    String processedValue = value;
+    if (preventLeadingTrailingSpaces) {
+      processedValue = value.trim();
+      if (processedValue != value) {
+        return patternErrorMessage ??
+            'Username cannot have leading or trailing spaces.';
+      }
     }
 
-    // Check maximum length
-    if (value.length > 20) {
-      return 'Username cannot exceed 20 characters';
+    if (preventConsecutiveSpaces && processedValue.contains('  ')) {
+      return patternErrorMessage ??
+          'Username cannot contain consecutive spaces.';
     }
 
-    // Check for spaces
+    if (processedValue.length < minLength) {
+      return 'Username must be at least $minLength characters.';
+    }
+    if (processedValue.length > maxLength) {
+      return 'Username cannot exceed $maxLength characters.';
+    }
     if (value.contains(' ')) {
       return 'Username cannot contain spaces';
     }
+    // Default pattern if none provided: alphanumeric, underscore, and dot
+    final RegExp effectivePattern = pattern ?? RegExp(r'^[a-zA-Z0-9_.]+$');
 
-    // Check for special characters
-    if (RegExp(r'[!@#$%^&*()+\-=\[\]{};:"\\|,.<>/?]').hasMatch(value)) {
-      return 'Username can only contain letters, numbers, and underscore';
-    }
-
-    final RegExp validCharsPattern = pattern ?? defaultPattern;
-    if (!validCharsPattern.hasMatch(value)) {
-      return patternErrorMessage ??
-          'Username must be 3-20 characters long and can only contain letters, numbers, and underscore';
+    if (!effectivePattern.hasMatch(processedValue)) {
+      return patternErrorMessage ?? 'Invalid username format.';
     }
 
     return null;
@@ -44,15 +50,21 @@ class UsernameValidator {
   static String? Function(String?) createValidator({
     RegExp? pattern,
     String? patternErrorMessage,
+    String? requiredUsernameMessage, // New parameter for empty message
     bool preventConsecutiveSpaces = true,
     bool preventLeadingTrailingSpaces = true,
+    int minLength = 3, // Default values
+    int maxLength = 20, // Default values
   }) {
     return (String? value) => validateUsername(
       value,
       pattern: pattern,
       patternErrorMessage: patternErrorMessage,
+      requiredUsernameMessage: requiredUsernameMessage,
       preventConsecutiveSpaces: preventConsecutiveSpaces,
       preventLeadingTrailingSpaces: preventLeadingTrailingSpaces,
+      minLength: minLength,
+      maxLength: maxLength,
     );
   }
 }

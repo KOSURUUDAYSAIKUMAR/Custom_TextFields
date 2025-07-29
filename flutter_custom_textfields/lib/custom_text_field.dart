@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'src/utils/custom_input_decoration.dart';
 
 class CustomTextField extends StatelessWidget {
   final String? label;
@@ -73,30 +74,13 @@ class CustomTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final finalDecoration =
         inputDecoration ??
-        InputDecoration(
-          labelText: label,
-          hintText: hint,
+        CustomInputDecorations.build(
+          context: context,
+          label: label,
+          hint: hint,
           prefixIcon: leadingIcon,
           suffixIcon: trailingIcon,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Theme.of(context).primaryColor),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.red.shade300),
-          ),
-          focusedErrorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: Colors.red.shade300, width: 2),
-          ),
           contentPadding: contentPadding,
-          errorStyle: const TextStyle(color: Colors.red, fontSize: 12),
         );
 
     return TextFormField(

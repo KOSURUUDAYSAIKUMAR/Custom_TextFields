@@ -1,187 +1,273 @@
-// import 'dart:convert';
-// import 'dart:io';
-// import 'package:flutter_custom_textfields/src/validator/pin_code_validator.dart';
-
-// class PinCodeModel {
-//   final String pincode;
-//   final String invalidMessage;
-//   final String validMessage;
-//   PinCodeModel(this.pincode, this.invalidMessage, this.validMessage);
-
-//   Future<Map<String, dynamic>> validatePinCode() async {
-//     // final validationError = PinCodeValidator.validate(
-//     //   pincode,
-//     //   invalidMessage,
-//     //   validMessage,
-//     // );
-//     // if (validationError != null) {
-//     //   return {
-//     //     'Status': 'Error',
-//     //     'Message': validationError,
-//     //     'PostOffice': null,
-//     //   };
-//     // }
-
-//     final hasConnection = await _checkInternetConnection();
-//     if (!hasConnection) {
-//       return {
-//         'Status': 'Error',
-//         'Message': 'No internet connection',
-//         'PostOffice': null,
-//         'UserEnteredPin': pincode,
-//       };
-//     }
-//     try {
-//       final result = await _callPinCodeAPI();
-//       return result;
-//     } catch (e) {
-//       return {
-//         'Status': 'Error',
-//         'Message': 'Failed to validate PIN code: ${e.toString()}',
-//         'PostOffice': null,
-//         'UserEnteredPin': pincode,
-//       };
-//     }
-//   }
-
-//   Future<bool> _checkInternetConnection() async {
-//     try {
-//       final result = await InternetAddress.lookup('google.com');
-//       if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-//         return true;
-//       }
-//     } on SocketException catch (_) {
-//       return false;
-//     }
-//     return false;
-//   }
-
-//   Future<Map<String, dynamic>> _callPinCodeAPI() async {
-//     final url = Uri.parse('https://api.postalpincode.in/pincode/$pincode');
-//     final httpClient = HttpClient();
-//     try {
-//       final request = await httpClient.getUrl(url);
-//       final response = await request.close();
-//       if (response.statusCode == HttpStatus.ok) {
-//         final responseBody = await response.transform(utf8.decoder).join();
-//         final jsonResponse = json.decode(responseBody);
-//         if (jsonResponse is List && jsonResponse.isNotEmpty) {
-//           return jsonResponse[0] as Map<String, dynamic>;
-//         }
-//       }
-//       return {
-//         'Status': 'Error',
-//         'Message': 'Invalid API response',
-//         'PostOffice': null,
-//       };
-//     } finally {
-//       httpClient.close();
-//     }
-//   }
-// }
-
-import 'dart:convert';
 import 'dart:io';
-import 'package:flutter_custom_textfields/src/validator/pin_code_validator.dart';
+import 'package:dio/dio.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 class PinCodeModel {
-  final String pincode;
-  final String? invalidMessage;
-  final String? requiredMessage;
+  final String userEnteredPin;
+  late final Dio _dio;
+  late final Connectivity _connectivity;
+  final CustomTextFieldsErrorMessages? _customErrorMessages;
 
-  PinCodeModel(this.pincode, {this.invalidMessage, this.requiredMessage});
+  PinCodeModel(
+    this.userEnteredPin, {
+    Dio? dio,
+    Connectivity? connectivity,
+    CustomTextFieldsErrorMessages? customErrorMessages,
+  }) : _dio = dio ?? Dio(),
+       _connectivity = connectivity ?? Connectivity(),
+       _customErrorMessages = customErrorMessages {
+    _configureDio();
+  }
+  @override
+  String toString() {
+    return 'PinCodeModel(userEnteredPin: $userEnteredPin, '
+        'dio: ${_dio.runtimeType}, '
+        'connectivity: ${_connectivity.runtimeType}, '
+        'customErrorMessages: $_customErrorMessages)';
+  }
 
-  Future<Map<String, dynamic>> validatePinCode() async {
-    final validationError = PinCodeValidator.validate(
-      pincode,
-      invalidPinCodeMessage: invalidMessage,
-      requiredPinCodeMessage: requiredMessage,
-    );
-
-    if (validationError != null) {
-      return {
-        'Status': 'Error',
-        'Message': validationError,
-        'PostOffice': null,
-        'UserEnteredPin': pincode,
-      };
-    }
-
-    final hasConnection = await _checkInternetConnection();
-    if (!hasConnection) {
-      return {
-        'Status': 'Error',
-        'Message': 'No internet connection',
-        'PostOffice': null,
-        'UserEnteredPin': pincode,
-      };
-    }
-
+  void _configureDio() {
     try {
-      final result = await _callPinCodeAPI();
+      _dio.options.baseUrl = 'https://api.postalpincode.in/';
+      _dio.options.connectTimeout = const Duration(seconds: 5);
+      _dio.options.sendTimeout = const Duration(seconds: 5);
+      _dio.options.receiveTimeout = const Duration(seconds: 60);
 
-      if (result is List && result.isNotEmpty) {
-        return result[0] as Map<String, dynamic>;
-      } else if (result is Map<String, dynamic>) {
-        return result;
+      // Add a simple log interceptor if not already present
+      if (!_dio.interceptors.any((i) => i is LogInterceptor)) {
+        _dio.interceptors.add(
+          LogInterceptor(responseBody: true, requestBody: true),
+        );
+      }
+    } catch (e, stack) {
+      print("Error configuring Dio: $e");
+      print(stack);
+      rethrow;
+    }
+  }
+
+  // Method that performs the validation logic and API call
+  Future<Map<String, dynamic>> validatePinCode() async {
+    // 1. Internet Connectivity Check
+    try {
+      final connectivityResult = await _connectivity.checkConnectivity();
+      if (connectivityResult.contains(ConnectivityResult.none)) {
+        return {
+          'Status': 'Error',
+          'Message':
+              _customErrorMessages?.noInternetConnection ??
+              'No internet connection',
+          'PostOffice': null,
+          'UserEnteredPin': userEnteredPin,
+        };
+      }
+
+      // Check for Google connectivity as a secondary check
+      try {
+        final googleResponse = await _dio.get(
+          'https://www.google.com',
+          options: Options(
+            sendTimeout: const Duration(seconds: 5),
+            receiveTimeout: const Duration(seconds: 60),
+          ),
+        );
+        if (googleResponse.statusCode != 200) {
+          return {
+            'Status': 'Error',
+            'Message':
+                _customErrorMessages?.noInternetConnection ??
+                'No internet connection',
+            'PostOffice': null,
+            'UserEnteredPin': userEnteredPin,
+          };
+        }
+        ;
+      } on DioException catch (e) {
+        // Treat DioExceptions during Google check as no internet
+        print('Google connectivity check DioException: $e');
+        return {
+          'Status': 'Error',
+          'Message':
+              _customErrorMessages?.noInternetConnection ??
+              'No internet connection',
+          'PostOffice': null,
+          'UserEnteredPin': userEnteredPin,
+        };
+      } catch (e) {
+        print('Google connectivity check General Exception: $e');
+        return {
+          'Status': 'Error',
+          'Message':
+              _customErrorMessages?.noInternetConnection ??
+              'No internet connection',
+          'PostOffice': null,
+          'UserEnteredPin': userEnteredPin,
+        };
+      }
+    } catch (e) {
+      return {
+        'Status': 'Error',
+        'Message':
+            _customErrorMessages?.connectivityCheckFailed ??
+            'Connectivity check failed',
+        'PostOffice': null,
+        'UserEnteredPin': userEnteredPin,
+      };
+    }
+
+    // 2. Basic PIN format validation
+    if (userEnteredPin.isEmpty) {
+      return {
+        'Status': 'Error',
+        'Message':
+            _customErrorMessages?.emptyPincode ?? 'PIN code cannot be empty',
+        'PostOffice': null,
+        'UserEnteredPin': userEnteredPin,
+      };
+    }
+    if (!RegExp(r'^[1-9][0-9]{5}$').hasMatch(userEnteredPin)) {
+      return {
+        'Status': 'Error',
+        'Message':
+            _customErrorMessages?.invalidPincodeFormat ??
+            'Invalid PIN code format',
+        'PostOffice': null,
+        'UserEnteredPin': userEnteredPin,
+      };
+    }
+
+    // 3. API Call
+    try {
+      final response = await _dio.get('pincode/$userEnteredPin');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+        if (data is List && data.isNotEmpty) {
+          final firstResult = data[0];
+          if (firstResult is Map && firstResult['Status'] == 'Success') {
+            return {
+              'Status': 'Success',
+              'Message': 'PIN code data retrieved successfully',
+              'PostOffice': firstResult['PostOffice'],
+              'UserEnteredPin': userEnteredPin,
+            };
+          } else if (firstResult is Map && firstResult['Status'] == 'Error') {
+            return {
+              'Status': 'Error',
+              'Message':
+                  _customErrorMessages?.invalidPincodeAPI ??
+                  firstResult['Message'] ??
+                  'Invalid PIN code (API)',
+              'PostOffice': null,
+              'UserEnteredPin': userEnteredPin,
+            };
+          }
+        }
+        // Handle empty API response or unexpected structure
+        return {
+          'Status': 'Error',
+          'Message':
+              _customErrorMessages?.emptyAPIResponse ??
+              'Empty or unexpected API response',
+          'PostOffice': null,
+          'UserEnteredPin': userEnteredPin,
+        };
+      } else {
+        // Handle non-200 status codes from API
+        return {
+          'Status': 'Error',
+          'Message':
+              _customErrorMessages?.badAPIResponse ??
+              'Failed to retrieve PIN code data: Status ${response.statusCode}',
+          'PostOffice': null,
+          'UserEnteredPin': userEnteredPin,
+        };
+      }
+    } on DioException catch (e) {
+      String errorMessage =
+          _customErrorMessages?.unknownError ?? 'An unknown error occurred';
+      if (e.type == DioExceptionType.connectionTimeout) {
+        errorMessage =
+            _customErrorMessages?.connectionTimeout ?? 'Connection timed out';
+      } else if (e.type == DioExceptionType.sendTimeout) {
+        errorMessage = _customErrorMessages?.sendTimeout ?? 'Send timed out';
+      } else if (e.type == DioExceptionType.receiveTimeout) {
+        errorMessage =
+            _customErrorMessages?.receiveTimeout ?? 'Receive timed out';
+      } else if (e.type == DioExceptionType.badResponse) {
+        errorMessage =
+            _customErrorMessages?.badAPIResponse ?? 'Bad response from server';
+      } else if (e.type == DioExceptionType.connectionError) {
+        errorMessage =
+            _customErrorMessages?.connectionError ?? 'Connection error';
+      } else if (e.type == DioExceptionType.badCertificate) {
+        errorMessage =
+            _customErrorMessages?.sslCertificateError ??
+            'SSL certificate error';
+      } else if (e.type == DioExceptionType.unknown) {
+        if (e.error is SocketException) {
+          // Example for handling specific unknown errors
+          errorMessage =
+              _customErrorMessages?.connectionError ?? 'Network unreachable';
+        } else {
+          errorMessage =
+              _customErrorMessages?.unknownError ?? 'Unknown network error';
+        }
       }
       return {
         'Status': 'Error',
-        'Message': 'Unexpected API response format',
+        'Message': errorMessage,
         'PostOffice': null,
-        'UserEnteredPin': pincode,
+        'UserEnteredPin': userEnteredPin,
       };
     } catch (e) {
       return {
         'Status': 'Error',
         'Message':
-            'Failed to validate PIN code due to API error: ${e.toString()}',
+            _customErrorMessages?.generalError ??
+            'A general error occurred: $e',
         'PostOffice': null,
-        'UserEnteredPin': pincode,
+        'UserEnteredPin': userEnteredPin,
       };
     }
   }
 
-  Future<bool> _checkInternetConnection() async {
-    try {
-      final result = await InternetAddress.lookup('google.com');
-      if (result.isNotEmpty && result[0].rawAddress.isNotEmpty) {
-        return true;
-      }
-    } on SocketException catch (_) {
-      return false;
-    }
-    return false;
+  void dispose() {
+    _dio.close();
   }
+}
 
-  Future<dynamic> _callPinCodeAPI() async {
-    final url = Uri.parse('https://api.postalpincode.in/pincode/$pincode');
-    final httpClient = HttpClient();
-    // httpClient.connectionTimeout = const Duration(seconds: 10);
-    try {
-      final request = await httpClient.getUrl(url);
-      final response = await request.close();
-      if (response.statusCode == HttpStatus.ok) {
-        final responseBody = await response.transform(utf8.decoder).join();
-        final jsonResponse = json.decode(responseBody);
-        return jsonResponse;
-      } else {
-        return {
-          'Status': 'Error',
-          'Message': 'API call failed with status: ${response.statusCode}',
-          'PostOffice': null,
-        };
-      }
-    } on SocketException {
-      throw 'No internet connection or host unreachable.';
-    } on HandshakeException {
-      throw 'SSL handshake error. Check certificate validity.';
-    } on FormatException {
-      throw 'Invalid JSON response from API.';
-    } catch (e) {
-      throw 'An unexpected network error occurred: ${e.toString()}';
-    } finally {
-      httpClient.close();
-    }
-  }
+// Assuming this class is provided by flutter_custom_textfields
+class CustomTextFieldsErrorMessages {
+  final String? noInternetConnection;
+  final String? connectivityCheckFailed;
+  final String? emptyPincode;
+  final String? invalidPincodeFormat;
+  final String? invalidPincodeAPI;
+  final String? emptyAPIResponse;
+  final String? badAPIResponse;
+  final String? connectionTimeout;
+  final String? sendTimeout;
+  final String? receiveTimeout;
+  final String? connectionError;
+  final String? sslCertificateError;
+  final String? unknownError;
+  final String? generalError;
+
+  const CustomTextFieldsErrorMessages({
+    this.noInternetConnection,
+    this.connectivityCheckFailed,
+    this.emptyPincode,
+    this.invalidPincodeFormat,
+    this.invalidPincodeAPI,
+    this.emptyAPIResponse,
+    this.badAPIResponse,
+    this.connectionTimeout,
+    this.sendTimeout,
+    this.receiveTimeout,
+    this.connectionError,
+    this.sslCertificateError,
+    this.unknownError,
+    this.generalError,
+  });
 }

@@ -1,7 +1,10 @@
+import 'dart:io';
 import 'package:example/otp_view.dart';
+import 'package:example/widgets/date_picker_demo_page.dart';
+import 'package:example/widgets/pin_code_widget.dart';
+import 'package:example/widgets/username_text.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_custom_textfields/flutter_custom_textfields.dart';
-import 'package:intl/intl.dart';
 
 class FormExample extends StatefulWidget {
   const FormExample({super.key});
@@ -64,8 +67,6 @@ class _FormExampleState extends State<FormExample> {
     }
   }
 
-  String _description = '';
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -84,9 +85,10 @@ class _FormExampleState extends State<FormExample> {
               ),
               const SizedBox(height: 8),
               EmailTextField(
+                hint: "Enter your email",
                 controller: _emailController,
                 focusNode: _emailNode,
-                iconColor: Theme.of(context).primaryColor,
+                iconColor: Colors.grey,
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 invalidEmailMessage: 'Please enter a valid email address',
                 requiredEmailMessage: 'Email is required',
@@ -105,6 +107,7 @@ class _FormExampleState extends State<FormExample> {
                 autovalidateMode: AutovalidateMode.onUserInteraction,
                 invalidNameMessage: 'Please enter a valid name',
                 requiredNameMessage: 'Full name is required',
+                hint: 'Enter your full name',
               ),
               const SizedBox(height: 16),
 
@@ -114,10 +117,10 @@ class _FormExampleState extends State<FormExample> {
               ),
               const SizedBox(height: 8),
               FlexiblePhoneField(
+                leadingIcon: null,
                 controller: _phoneController,
                 focusNode: _phoneNode,
                 style: PhoneFieldStyle.dropdown,
-                isShowError: true,
               ),
               const SizedBox(height: 15),
 
@@ -127,10 +130,10 @@ class _FormExampleState extends State<FormExample> {
               ),
               const SizedBox(height: 8),
               FlexiblePhoneField(
+                leadingIcon: null,
                 controller: TextEditingController(),
                 focusNode: FocusNode(),
                 style: PhoneFieldStyle.simple,
-                isShowError: true,
               ),
               const SizedBox(height: 15),
 
@@ -140,10 +143,13 @@ class _FormExampleState extends State<FormExample> {
               ),
               const SizedBox(height: 8),
               FlexiblePhoneField(
+                leadingIcon: Icon(
+                  Icons.phone_android_rounded,
+                  color: Colors.grey,
+                ),
                 controller: TextEditingController(),
                 focusNode: FocusNode(),
                 style: PhoneFieldStyle.withIcons,
-                isShowError: true,
               ),
               const SizedBox(height: 15),
 
@@ -153,10 +159,10 @@ class _FormExampleState extends State<FormExample> {
               ),
               const SizedBox(height: 8),
               FlexiblePhoneField(
+                leadingIcon: null,
                 controller: TextEditingController(),
                 focusNode: FocusNode(),
                 style: PhoneFieldStyle.integrated,
-                isShowError: true,
               ),
               const SizedBox(height: 15),
 
@@ -165,12 +171,9 @@ class _FormExampleState extends State<FormExample> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              UsernameTextfield(
-                controller: _usernameController,
-                focusNode: _usernameNode,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                patternErrorMessage:
-                    'Username must be 3-20 characters and can only contain letters, numbers, and underscore',
+              UsernameText(
+                usernameController: _usernameController,
+                usernameNode: _usernameNode,
               ),
               const SizedBox(height: 24),
 
@@ -189,7 +192,11 @@ class _FormExampleState extends State<FormExample> {
                 controller: _passwordController,
                 focusNode: _passwordNode,
                 hint: "Enter password",
+                validationPattern: RegExp(r'^[a-zA-Z0-9@$!%*?&]{8,20}$'),
+                minPasswordLength: 8,
+                maxPasswordLength: 20,
               ),
+              const SizedBox(height: 24),
               const Text(
                 'Confirm Password',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -201,24 +208,33 @@ class _FormExampleState extends State<FormExample> {
                 compareWithController: _passwordController,
                 passwordMismatchMessage:
                     'Confirm password does not match with the password.',
+                validationPattern: RegExp(r'^[a-zA-Z0-9@$!%*?&]{8,20}$'),
+                minPasswordLength: 8,
+                maxPasswordLength: 20,
               ),
               const SizedBox(height: 24),
               const Text('Pin code'),
-              PinCodeTextfield(
-                controller: _pincodeController,
-                hint: 'Enter 6-digit PIN',
-                invalidMessage: 'Please enter a valid Indian PIN code',
-                requiredMessage: 'PIN code is required',
-                onValidationComplete: (response) {
-                  if (response['Status'] == 'Success') {
-                    // Handle successful validation
-                  }
-                },
-                leadingIcon: Icon(
-                  Icons.location_on_outlined,
-                  color: Colors.grey,
-                ),
-              ),
+              CustomPinCodeWidget(),
+              // SimplePinCodeWidget(),
+              // PinCodeTextfield(
+              //   controller: _pincodeController,
+              //   hint: 'Enter 6-digit PIN',
+              //   invalidMessage: 'Please enter a valid Indian PIN code',
+              //   requiredMessage: 'PIN code is required',
+              //   onValidationComplete: (response) {
+              //     if (response['Status'] == 'Success') {
+              //       // Handle successful validation
+              //     }
+              //   },
+              //   leadingIcon: Icon(
+              //     Icons.location_on_outlined,
+              //     color: Colors.grey,
+              //   ),
+              //   onFieldSubmitted: (p0) {
+              //     print('Pin code submitted: $p0');
+              //     return null;
+              //   },
+              // ),
               const SizedBox(height: 24.0),
               const Text(
                 'Description (max 200 characters, required):',
@@ -228,11 +244,6 @@ class _FormExampleState extends State<FormExample> {
               TextArea(
                 hint: 'Enter a detailed description...',
                 maxLength: 200,
-                onChanged: (text) {
-                  setState(() {
-                    _description = text;
-                  });
-                },
                 textInputAction: TextInputAction.next,
               ),
               // CameraWithLocationWidget(
@@ -241,20 +252,41 @@ class _FormExampleState extends State<FormExample> {
               //     print("Image path ----- $imagePath");
               //   },
               // ),
-              CameraLocationPicker(
-                enableCamera: true,
-                enableLocation: true,
-                enableWatermark: true,
-                y: 200,
-                //   waterMarkText:
-                //     'MyApp © ${DateFormat('yyyy-MM-dd – kk:mm').format(DateTime.now())}',
-                onResult: (result) {
-                  // handle the captured File, coords, address
-                  print('File: ${result.imageFile.path}');
-                  print('Lat: ${result.latitude}');
-                  print('Lng: ${result.longitude}');
-                  print('Address: ${result.address}');
+              // CameraLocationPicker(
+              //   enableCamera: true,
+              //   enableLocation: true,
+              //   enableWatermark: true,
+              //   y: 200,
+              //   //   waterMarkText:
+              //   //     'MyApp © ${DateFormat('yyyy-MM-dd – kk:mm').format(DateTime.now())}',
+              //   onResult: (result) {
+              //     // handle the captured File, coords, address
+              //     print('File: ${result.imageFile.path}');
+              //     print('Lat: ${result.latitude}');
+              //     print('Lng: ${result.longitude}');
+              //     print('Address: ${result.address}');
+              //   },
+              // ),
+              ElevatedButton(
+                onPressed: () => _openCamera(context),
+                child: const Text('Open Camera Picker'),
+              ),
+
+              const SizedBox(height: 24.0),
+              const Text(
+                'Date Picker Demo:',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DatePickerDemoPage(),
+                    ),
+                  );
                 },
+                child: const Text('Open Date Picker Demo'),
               ),
               const SizedBox(height: 24),
 
@@ -270,5 +302,132 @@ class _FormExampleState extends State<FormExample> {
         ),
       ),
     );
+  }
+
+  void _openCamera(BuildContext context) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder:
+            (context) => Scaffold(
+              // appBar: AppBar(title: const Text('Capture Image')),
+              body: CameraLocationPicker(
+                enableLocation: true,
+                enableCamera: true,
+                enableWatermark: true,
+                cameraMode: CameraMode.front,
+                callback: (image, lat, lng, address) {
+                  print("Received data:");
+                  print("Image: ${image?.path}");
+                  print("Lat: $lat");
+                  print("Lng: $lng");
+                  print("Address: $address");
+
+                  Navigator.pop(context);
+                  _showResult(context, image, lat, lng, address);
+                },
+              ),
+            ),
+      ),
+    );
+  }
+
+  void _showResult(
+    BuildContext context,
+    File? image,
+    double? lat,
+    double? lng,
+    String? address,
+  ) {
+    showDialog(
+      context: context,
+      builder:
+          (context) => AlertDialog(
+            title: const Text('Capture Result'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (image != null) ...[
+                    Image.file(image, fit: BoxFit.contain),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.download),
+                          onPressed: () {
+                            _downloadImage(image);
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.share),
+                          onPressed: () async {
+                            _shareImage(image);
+                          },
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (image == null) ...[
+                    const SizedBox(height: 20),
+                    Text('Latitude: ${lat ?? 'N/A'}'),
+                    Text('Longitude: ${lng ?? 'N/A'}'),
+                    Text('Address: ${address ?? 'N/A'}'),
+                  ],
+
+                  // ConstrainedBox(
+                  //   constraints: const BoxConstraints(
+                  //     maxHeight: 300,
+                  //     maxWidth: 300,
+                  //   ),
+                  //   child: Image.file(image, fit: BoxFit.contain),
+                  // ),
+                  // const SizedBox(height: 20),
+                  // Text('Latitude: ${lat ?? 'N/A'}'),
+                  // Text('Longitude: ${lng ?? 'N/A'}'),
+                  // Text('Address: ${address ?? 'N/A'}'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
+          ),
+    );
+  }
+
+  Future<void> _downloadImage(File image) async {
+    try {
+      final newPath = await FileUtils.saveToDownloads(image);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Image saved to: $newPath')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Download failed: ${e.toString()}')),
+      );
+    }
+  }
+
+  Future<void> _shareImage(File image) async {
+    try {
+      await FileUtils.shareImage(image);
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Image shared successfully')));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Sharing failed: ${e.toString()}')),
+      );
+    }
   }
 }

@@ -4,8 +4,8 @@ class EmailValidator {
   );
   static RegExp? _customEmailRegex;
 
-  static void setCustomPattern(String pattern) {
-    _customEmailRegex = RegExp(pattern);
+  static void setCustomPattern(RegExp pattern) {
+    _customEmailRegex = pattern;
   }
 
   static void resetToDefaultPattern() {
@@ -45,17 +45,20 @@ class EmailValidator {
     if (value == null || value.isEmpty) {
       return requiredMessage;
     }
-
-    // Check for @ symbol
     if (!value.contains('@')) {
       return 'Email must contain @';
     }
-
-    // Check for domain
     if (!value.contains('.')) {
       return 'Email must contain a domain (e.g. .com)';
     }
-
+    final parts = value.split('@');
+    if (parts.length != 2 || parts[0].isEmpty || parts[1].isEmpty) {
+      return "Please enter a valid email address with '@' symbol.";
+    }
+    final domainParts = parts[1].split('.');
+    if (domainParts.length < 2 || domainParts.any((part) => part.isEmpty)) {
+      return "Please enter a valid email domain.";
+    }
     if (!activePattern.hasMatch(value)) {
       return errorMessage;
     }

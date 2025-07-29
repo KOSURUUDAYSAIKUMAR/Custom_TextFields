@@ -2,73 +2,89 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_custom_textfields/src/validator/textarea_validator.dart';
 import '../../custom_text_field.dart';
+import '../utils/custom_input_decoration.dart';
 
 class TextArea extends StatefulWidget {
   final String? label;
   final String? hint;
   final TextEditingController? controller;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final Widget? leadingIcon;
+  final Widget? trailingIcon;
+  final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
   final void Function(String)? onChanged;
-  final String? Function(String?)? customValidator;
   final bool enabled;
   final FocusNode? focusNode;
-  final Color? iconColor;
+  final String? initialValue;
+  final int? maxLength;
+  final bool readOnly;
+  final void Function()? onTap;
+  final Color? cursorColor;
+  final BoxDecoration? decoration;
   final InputDecoration? inputDecoration;
-  final Widget? trailingIcon;
-  final Widget? leadingIcon;
-  final TextCapitalization? textCapitalization;
-  final RegExp? validationPattern;
-  final String? patternErrorMessage;
+  final TextStyle? textStyle;
+  final EdgeInsetsGeometry contentPadding;
+  final TextCapitalization textCapitalization;
+  final AutovalidateMode? autovalidateMode;
+  final TextInputAction? textInputAction;
+  final Function(String)? onFieldSubmitted;
+  final int? maxLines;
+  final Color? iconColor;
+  final String? invalidTextAreaMessage;
+  final String? requiredTextAreaMessage;
   final bool preventConsecutiveSpaces;
   final bool preventLeadingTrailingSpaces;
   final RegExp? inputFormatterPattern;
+  final RegExp? validationPattern;
   final bool useInputFormatter;
-  final int? maxLength;
-  final bool readOnly;
-  final Color? cursorColor;
-  final TextStyle? textStyle;
-  final EdgeInsetsGeometry? contentPadding;
-  final TextInputType? keyboardType;
-  final AutovalidateMode? autovalidateMode;
-  final String? initialValue;
-  final TextInputAction? textInputAction;
+
   final String? emptyMessage;
-  final String? requiredMessage;
+
   final String? lengthMessage;
-  final List<TextInputFormatter>? inputFormatters;
 
   const TextArea({
     super.key,
     this.label,
     this.hint,
     this.controller,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.multiline,
+    this.leadingIcon,
+    this.trailingIcon,
+    this.validator,
+    this.inputFormatters,
     this.onChanged,
-    this.customValidator,
     this.enabled = true,
     this.focusNode,
-    this.iconColor,
-    this.inputDecoration,
-    this.trailingIcon,
-    this.leadingIcon,
-    this.textCapitalization,
-    this.validationPattern,
-    this.patternErrorMessage,
+    this.initialValue,
+    this.maxLength,
+    this.readOnly = false,
+    this.onTap,
+    this.cursorColor,
+    this.decoration,
+    this.textStyle,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 16,
+    ),
+    this.textCapitalization = TextCapitalization.none,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.maxLines,
     this.preventConsecutiveSpaces = true,
     this.preventLeadingTrailingSpaces = true,
     this.inputFormatterPattern,
+    this.validationPattern,
     this.useInputFormatter = true,
-    this.maxLength,
-    this.readOnly = false,
-    this.cursorColor,
-    this.textStyle,
-    this.contentPadding,
-    this.keyboardType,
+    this.iconColor,
+    this.inputDecoration,
+    this.invalidTextAreaMessage,
+    this.requiredTextAreaMessage,
     this.autovalidateMode = AutovalidateMode.onUserInteraction,
-    this.initialValue,
-    this.textInputAction,
     this.emptyMessage,
-    this.requiredMessage,
     this.lengthMessage,
-    this.inputFormatters,
   });
 
   @override
@@ -77,21 +93,17 @@ class TextArea extends StatefulWidget {
 
 class _TextAreaState extends State<TextArea> {
   late final TextEditingController _textController;
-  int _currentLength = 0;
 
   @override
   void initState() {
     super.initState();
     _textController =
         widget.controller ?? TextEditingController(text: widget.initialValue);
-    _currentLength = _textController.text.length;
+
     _textController.addListener(_updateTextAndLength);
   }
 
   void _updateTextAndLength() {
-    setState(() {
-      _currentLength = _textController.text.length;
-    });
     widget.onChanged?.call(_textController.text);
   }
 
@@ -110,6 +122,19 @@ class _TextAreaState extends State<TextArea> {
         widget.label?.isNotEmpty == true ? widget.label : null;
     final String? effectiveHint =
         widget.hint?.isNotEmpty == true ? widget.hint : null;
+    final leadingIcon =
+        widget.leadingIcon ??
+        Icon(Icons.email_outlined, color: widget.iconColor ?? Colors.grey);
+    final effectiveDecoration =
+        widget.inputDecoration ??
+        CustomInputDecorations.build(
+          context: context,
+          label: effectiveLabel,
+          hint: effectiveHint,
+          prefixIcon: leadingIcon,
+          suffixIcon: widget.trailingIcon,
+          contentPadding: widget.contentPadding,
+        );
 
     List<TextInputFormatter> effectiveInputFormatters = [];
     if (widget.inputFormatters != null) {
@@ -126,74 +151,60 @@ class _TextAreaState extends State<TextArea> {
       );
     }
 
+    // Add formatter to prevent emojis
+    effectiveInputFormatters.add(
+      FilteringTextInputFormatter.deny(
+        RegExp(
+          r'(\u00a9|\u00ae|[\u2000-\u3300]|\ud83c[\ud000-\udfff]|\ud83d[\ud000-\udfff]|\ud83e[\ud000-\udfff])',
+        ),
+      ),
+    );
+
+    String? Function(String?) validator;
+    if (widget.validator != null) {
+      validator = widget.validator!;
+    } else {
+      validator = (value) {
+        return TextAreaValidator.validate(
+          value,
+          maxLength: widget.maxLength ?? 0,
+          emptyMessage: widget.emptyMessage ?? 'This field cannot be empty.',
+          lengthMessage: widget.lengthMessage ?? 'Exceeded maximum length.',
+        );
+      };
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CustomTextField(
-          controller: _textController,
-          maxLines: null,
-          keyboardType: widget.keyboardType ?? TextInputType.multiline,
-          maxLength: widget.maxLength,
-          textInputAction: widget.textInputAction,
+          maxLines: widget.maxLines,
+          decoration: widget.decoration,
+          initialValue: widget.initialValue,
+          obscureText: widget.obscureText,
           label: effectiveLabel,
           hint: effectiveHint,
+          controller: _textController,
+          keyboardType: widget.keyboardType,
+          maxLength: widget.maxLength,
+          textInputAction: widget.textInputAction,
           leadingIcon: widget.leadingIcon,
           trailingIcon: widget.trailingIcon,
-          inputFormatters: effectiveInputFormatters,
-          inputDecoration:
-              widget.inputDecoration ??
-              InputDecoration(
-                hintText: effectiveHint,
-                counterText: "",
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(color: Colors.grey.shade400),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(
-                    color: Theme.of(context).primaryColor,
-                    width: 2.0,
-                  ),
-                ),
-                errorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(color: Colors.red, width: 2.0),
-                ),
-                focusedErrorBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8.0),
-                  borderSide: BorderSide(color: Colors.red, width: 2.0),
-                ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16.0,
-                  vertical: 12.0,
-                ),
-              ),
-          validator:
-              widget.customValidator ??
-              (value) {
-                return TextAreaValidator.validate(
-                  value,
-                  maxLength: widget.maxLength ?? 0,
-                  emptyMessage: widget.emptyMessage,
-                  lengthMessage: widget.lengthMessage,
-                );
-              },
-          onChanged:
-              widget.onChanged ??
-              (value) {
-                setState(() {
-                  _currentLength = value.length;
-                });
-                widget.onChanged?.call(value);
-              },
+          validator: validator,
+          onChanged: (value) {
+            widget.onChanged?.call(value);
+          },
+          onFieldSubmitted: (p0) {
+            widget.onFieldSubmitted?.call(p0);
+          },
+          onTap: () {
+            widget.onTap?.call();
+          },
           enabled: widget.enabled,
           focusNode: widget.focusNode,
-          textCapitalization:
-              widget.textCapitalization ?? TextCapitalization.none,
+          inputFormatters: effectiveInputFormatters,
+          inputDecoration: effectiveDecoration,
+          textCapitalization: widget.textCapitalization,
           readOnly: widget.readOnly,
           cursorColor: widget.cursorColor ?? Theme.of(context).primaryColor,
           textStyle: widget.textStyle,
@@ -202,19 +213,6 @@ class _TextAreaState extends State<TextArea> {
           preventLeadingTrailingSpaces: widget.preventLeadingTrailingSpaces,
           inputFormatterPattern: widget.inputFormatterPattern,
           useInputFormatter: widget.useInputFormatter,
-        ),
-        Padding(
-          padding: const EdgeInsets.only(top: 4.0, left: 4.0),
-          child: Text(
-            '$_currentLength / ${widget.maxLength}',
-            style: TextStyle(
-              fontSize: 12.0,
-              color:
-                  widget.maxLength != null && _currentLength > widget.maxLength!
-                      ? Colors.red
-                      : Colors.grey.shade600,
-            ),
-          ),
         ),
       ],
     );

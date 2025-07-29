@@ -81,6 +81,7 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
   late OTPModel _otpModel;
   late TextEditingController _mainController;
   late FocusNode _mainFocusNode;
+  // bool _hasBeenFocused = false;
 
   @override
   void initState() {
@@ -88,7 +89,13 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     _initializeControllers();
     _initializeAnimations();
     _otpModel = OTPModel.initial(widget.length);
-
+    _mainFocusNode.addListener(() {
+      if (_mainFocusNode.hasFocus) {
+        // setState(() {
+        //   _hasBeenFocused = true;
+        // });
+      }
+    });
     if (widget.autoFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _mainFocusNode.requestFocus();
@@ -102,7 +109,6 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
       (index) => TextEditingController(),
     );
     _focusNodes = List.generate(widget.length, (index) => FocusNode());
-
     _mainController = TextEditingController();
     _mainFocusNode = widget.focusNode ?? FocusNode();
   }
@@ -113,7 +119,6 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
       (index) =>
           AnimationController(duration: widget.animationDuration, vsync: this),
     );
-
     _animations =
         _animationControllers.map((controller) {
           switch (widget.animationType) {
@@ -175,27 +180,26 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     if (value.length > widget.length) {
       value = value.substring(0, widget.length);
     }
-
     List<String> newDigits = List.filled(widget.length, '');
     for (int i = 0; i < value.length; i++) {
       newDigits[i] = value[i];
       _controllers[i].text = value[i];
       _animationControllers[i].forward();
     }
-
-    // Clear remaining fields
     for (int i = value.length; i < widget.length; i++) {
       _controllers[i].clear();
       _animationControllers[i].reverse();
     }
-
-    _updateOTPModel(newDigits, value.length);
+    int currentIndex = value.length;
+    if (currentIndex >= widget.length) {
+      currentIndex = widget.length - 1;
+    }
+    _updateOTPModel(newDigits, currentIndex);
   }
 
   void _updateOTPModel(List<String> newDigits, int currentIndex) {
     String newValue = newDigits.join();
     bool isComplete = OTPValidator.isComplete(newValue, widget.length);
-
     setState(() {
       _otpModel = _otpModel.copyWith(
         digits: newDigits,
@@ -204,9 +208,7 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
         currentIndex: currentIndex,
       );
     });
-
     widget.onChanged?.call(newValue);
-
     if (isComplete) {
       widget.onCompleted(newValue);
     }
@@ -220,6 +222,7 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     }
     setState(() {
       _otpModel = OTPModel.initial(widget.length);
+      // _hasBeenFocused = false;
     });
     if (widget.autoFocus) {
       _mainFocusNode.requestFocus();
@@ -246,12 +249,21 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     final theme = Theme.of(context);
     final hasError = widget.errorText != null && widget.errorText!.isNotEmpty;
 
+    final screenWidth = MediaQuery.of(context).size.width;
+    final horizontalPadding = 48.0; // adjust as needed
+    final boxCount = widget.length;
+    final minBoxWidth = 40.0;
+    final maxBoxWidth = 70.0;
+    final boxWidth = (screenWidth - horizontalPadding) / boxCount;
+    final fieldWidth = boxWidth.clamp(minBoxWidth, maxBoxWidth);
+    final fieldHeight = fieldWidth * 1.2; // proportional
+    final fontSize = fieldWidth * 0.5; // proportional
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Stack(
           children: [
-            // Hidden text field for input handling
             Opacity(
               opacity: 0.0,
               child: SizedBox(
@@ -275,11 +287,22 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
               ),
             ),
             // Visible PIN fields
-            Row(
-              mainAxisAlignment: widget.mainAxisAlignment,
-              children: List.generate(widget.length, (index) {
-                return _buildPinField(context, index, hasError, theme);
-              }),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                mainAxisAlignment: widget.mainAxisAlignment,
+                children: List.generate(widget.length, (index) {
+                  return _buildPinField(
+                    context,
+                    index,
+                    hasError,
+                    theme,
+                    fieldWidth,
+                    fieldHeight,
+                    fontSize,
+                  );
+                }),
+              ),
             ),
           ],
         ),
@@ -312,17 +335,38 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     int index,
     bool hasError,
     ThemeData theme,
+    double fieldWidth,
+    double fieldHeight,
+    double fontSize,
   ) {
     final hasValue = index < _otpModel.value.length;
-    final isActive = index == _otpModel.currentIndex;
+    final isActive =
+        _mainFocusNode.hasFocus &&
+        !_otpModel.isComplete &&
+        (index == _otpModel.currentIndex ||
+            (_otpModel.value.isEmpty && index == 0));
+    final isFocused = _mainFocusNode.hasFocus; // Track if any field is focused
     final currentValue = hasValue ? _otpModel.digits[index] : '';
     final displayValue =
         widget.obscureText && hasValue
             ? widget.obscuringCharacter
             : currentValue;
-
     return GestureDetector(
-      onTap: widget.enabled ? () => _mainFocusNode.requestFocus() : null,
+      onTap:
+          widget.enabled
+              ? () {
+                _mainFocusNode.requestFocus();
+                // Fix: If tapping first box and value is empty, set controller and OTP value so first box is active
+                if (_otpModel.value.isEmpty && index == 0) {
+                  _mainController.text = '';
+                  _onChanged('');
+                } else if (index < _otpModel.value.length) {
+                  String newValue = _otpModel.value.substring(0, index);
+                  _mainController.text = newValue;
+                  _onChanged(newValue);
+                }
+              }
+              : null,
       child: Container(
         margin: widget.fieldStyle.margin,
         child: AnimatedBuilder(
@@ -332,9 +376,13 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
               index: index,
               hasValue: hasValue,
               isActive: isActive,
+              isFocused: isFocused,
               hasError: hasError,
               displayValue: displayValue,
               theme: theme,
+              fieldWidth: fieldWidth,
+              fieldHeight: fieldHeight,
+              fontSize: fontSize,
             );
           },
         ),
@@ -346,22 +394,31 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
     required int index,
     required bool hasValue,
     required bool isActive,
+    required bool isFocused,
     required bool hasError,
     required String displayValue,
     required ThemeData theme,
+    required double fieldWidth,
+    required double fieldHeight,
+    required double fontSize,
   }) {
     final double width = widget.fieldStyle.width.clamp(0.0, double.infinity);
     final double height = widget.fieldStyle.height.clamp(0.0, double.infinity);
-
     Widget container = Container(
       width: width,
       height: height,
       padding: widget.fieldStyle.padding,
-      decoration: _buildDecoration(hasValue, isActive, hasError, theme),
+      decoration: _buildDecoration(
+        hasValue,
+        isActive,
+        isFocused,
+        hasError,
+        theme,
+      ),
       child: Stack(
         alignment: Alignment.center,
         children: [
-          if (hasValue)
+          if (hasValue) ...[
             Text(
               displayValue,
               style:
@@ -371,8 +428,11 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
                     color: theme.colorScheme.onSurface,
                   ),
               textAlign: widget.fieldStyle.textAlign,
-            )
-          else if (!hasValue && (!isActive || !widget.fieldStyle.showCursor))
+            ),
+          ] else if (!hasValue &&
+              widget.fieldStyle.placeholderText.isNotEmpty &&
+              !isActive) ...[
+            // Show placeholder only when field is empty and not active (no cursor)
             Text(
               widget.fieldStyle.placeholderText,
               style:
@@ -383,7 +443,14 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
                   ),
               textAlign: widget.fieldStyle.textAlign,
             ),
-          if (isActive && widget.fieldStyle.showCursor)
+          ],
+          // Show cursor when field is active and focused
+          if (isActive && widget.fieldStyle.showCursor && isFocused)
+            // if ((isActive ||
+            //         (isFocused && _otpModel.value.isEmpty && index == 0)) &&
+            //     widget.fieldStyle.showCursor &&
+            //     isFocused &&
+            //     !hasValue)
             Container(
               width: widget.fieldStyle.cursorWidth,
               height: widget.fieldStyle.cursorHeight,
@@ -428,6 +495,7 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
   BoxDecoration _buildDecoration(
     bool hasValue,
     bool isActive,
+    bool isFocused,
     bool hasError,
     ThemeData theme,
   ) {
@@ -439,6 +507,9 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
       borderColor =
           widget.fieldDecoration.selectedColor ?? theme.colorScheme.primary;
     } else if (hasValue) {
+      borderColor =
+          widget.fieldDecoration.activeColor ?? theme.colorScheme.primary;
+    } else if (isFocused) {
       borderColor =
           widget.fieldDecoration.activeColor ?? theme.colorScheme.primary;
     } else {
@@ -490,13 +561,10 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
 
   List<TextInputFormatter> _getInputFormatters() {
     List<TextInputFormatter> formatters = [];
-
     if (widget.inputFormatters != null) {
       formatters.addAll(widget.inputFormatters!);
     }
-
     formatters.add(LengthLimitingTextInputFormatter(widget.length));
-
     switch (widget.inputType) {
       case OTPInputType.numeric:
         formatters.add(FilteringTextInputFormatter.digitsOnly);
@@ -507,7 +575,6 @@ class AdvancedOTPFieldState extends State<AdvancedOTPField>
         );
         break;
       case OTPInputType.custom:
-        // No additional formatting for custom input
         break;
     }
 

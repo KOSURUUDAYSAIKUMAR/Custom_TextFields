@@ -1,50 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import '../models/country_code.dart';
-import '../validator/phone_validator.dart';
+import 'package:flutter_custom_textfields/flutter_custom_textfields.dart';
+import '../utils/custom_input_decoration.dart';
 
 enum PhoneFieldStyle { simple, dropdown, integrated, withIcons }
 
 class FlexiblePhoneField extends StatefulWidget {
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final InputDecoration? decoration;
-  final List<CountryCode>? availableCountries;
-  final int? maxLength;
-  final PhoneFieldStyle style;
-  final VoidCallback? onSubmitted;
-  final void Function(String)? onPhoneNumberChanged;
-  final String countryCode;
-  final Widget? leadingIcon;
-  final String hintText;
-  final String hintext;
   final String? label;
-  final bool isShowError;
-  final String? regexPattern;
-  final String? invalidPatternMessage;
+  final String? hint;
+  final TextEditingController? controller;
+  final bool obscureText;
+  final TextInputType keyboardType;
+  final Widget? leadingIcon;
+  final Widget? trailingIcon;
+  final String? Function(String?)? validator;
+  final List<TextInputFormatter>? inputFormatters;
+  final void Function(String)? onChanged;
+  final bool enabled;
+  final FocusNode? focusNode;
+  final String? initialValue;
+  final int? maxLength;
+  final bool readOnly;
+  final void Function()? onTap;
+  final Color? cursorColor;
+  final BoxDecoration? decoration;
+  final InputDecoration? inputDecoration;
   final TextStyle? textStyle;
+  final EdgeInsetsGeometry contentPadding;
+  final TextCapitalization textCapitalization;
+  final AutovalidateMode? autovalidateMode;
+  final TextInputAction? textInputAction;
+  final Function(String)? onFieldSubmitted;
+  final int? maxLines;
+  final Color? iconColor;
+  final String? invalidNumberMessage;
+  final String? requiredNumberMessage;
+  final bool preventConsecutiveSpaces;
+  final bool preventLeadingTrailingSpaces;
+  final RegExp? inputFormatterPattern;
+  final RegExp? validationPattern;
+  final bool useInputFormatter;
+
+  final List<CountryCode>? availableCountries;
+  final PhoneFieldStyle style;
+  final String countryCode;
   final PhoneValidationConfig? validationConfig;
 
   const FlexiblePhoneField({
     super.key,
-    required this.controller,
-    required this.focusNode,
-    this.style = PhoneFieldStyle.simple,
-    this.hintText = 'Enter mobile number',
     this.label,
-    this.countryCode = '+91',
-    this.isShowError = true,
-    this.regexPattern,
-    this.invalidPatternMessage,
-    this.maxLength = 10,
-    this.decoration,
+    this.hint = 'Enter mobile number',
+    this.controller,
+    this.obscureText = false,
+    this.keyboardType = TextInputType.phone,
     this.leadingIcon,
-    this.onPhoneNumberChanged,
-    this.availableCountries,
-    this.onSubmitted,
+    this.trailingIcon,
+    this.validator,
+    this.inputFormatters,
+    this.onChanged,
+    this.enabled = true,
+    this.focusNode,
+    this.initialValue,
+    this.maxLength,
+    this.readOnly = false,
+    this.onTap,
+    this.cursorColor,
+    this.decoration,
+    this.inputDecoration,
     this.textStyle,
+    this.contentPadding = const EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: 16,
+    ),
+    this.textCapitalization = TextCapitalization.none,
+    this.autovalidateMode = AutovalidateMode.onUserInteraction,
+    this.textInputAction,
+    this.onFieldSubmitted,
+    this.maxLines,
+    this.iconColor,
+    this.invalidNumberMessage,
+    this.requiredNumberMessage,
+    this.preventConsecutiveSpaces = true,
+    this.preventLeadingTrailingSpaces = true,
+    this.inputFormatterPattern,
+    this.validationPattern,
+    this.useInputFormatter = true,
+    this.availableCountries,
+    this.style = PhoneFieldStyle.simple,
+    this.countryCode = '+91',
     this.validationConfig,
-    this.hintext = 'Enter mobile number',
   });
 
   @override
@@ -59,7 +103,9 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
   String _selectedCountryCode = '+91';
   late PhoneValidator _phoneValidator;
   late PhoneValidationConfig _validationConfig;
-
+  String? effectiveLabel;
+  String? effectiveHint;
+  Widget? leadingIcon;
   @override
   void initState() {
     super.initState();
@@ -67,7 +113,7 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
     _validationConfig =
         widget.validationConfig ?? PhoneValidationConfig.defaultConfig();
     _phoneValidator = PhoneValidator(config: _validationConfig);
-    widget.focusNode.addListener(_handleFocusChange);
+    widget.focusNode!.addListener(_handleFocusChange);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 200),
@@ -75,11 +121,14 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
     _scaleAnimation = Tween<double>(begin: 1.0, end: 0.98).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    effectiveLabel = widget.label?.isNotEmpty == true ? widget.label : null;
+    effectiveHint = widget.hint?.isNotEmpty == true ? widget.hint : null;
+    leadingIcon = widget.leadingIcon;
   }
 
   @override
   void dispose() {
-    widget.focusNode.removeListener(_handleFocusChange);
+    widget.focusNode!.removeListener(_handleFocusChange);
     _animationController.dispose();
     super.dispose();
   }
@@ -88,7 +137,7 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
     if (mounted) {
       setState(() {
         _updateBorderColor();
-        if (widget.focusNode.hasFocus) {
+        if (widget.focusNode!.hasFocus) {
           _animationController.forward();
         } else {
           _animationController.reverse();
@@ -97,12 +146,8 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
     }
   }
 
-  void _handleSubmit() {
-    widget.onSubmitted?.call();
-  }
-
   void _updateBorderColor() {
-    if (widget.focusNode.hasFocus) {
+    if (widget.focusNode!.hasFocus) {
       _borderColor = Theme.of(context).colorScheme.primary;
     } else {
       _borderColor = Colors.grey[300]!;
@@ -166,7 +211,7 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
         Flexible(
           child: ScaleTransition(
             scale: _scaleAnimation,
-            child: _buildTextFormField(hintText: widget.hintText),
+            child: _buildTextFormField(hintText: effectiveHint),
           ),
         ),
       ],
@@ -177,7 +222,7 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
   Widget _buildIntegratedStyle() {
     return ScaleTransition(
       scale: _scaleAnimation,
-      child: _buildTextFormField(hintText: widget.hintText),
+      child: _buildTextFormField(hintText: effectiveHint),
     );
   }
 
@@ -186,14 +231,14 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
     return ScaleTransition(
       scale: _scaleAnimation,
       child: _buildTextFormField(
-        hintText: widget.hintText,
+        hintText: effectiveHint,
         prefixIcon: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(horizontal: 12),
           child: Icon(
             Icons.smartphone_rounded,
             color:
-                widget.focusNode.hasFocus
+                widget.focusNode!.hasFocus
                     ? Theme.of(context).colorScheme.primary
                     : Colors.grey[600],
             size: 22,
@@ -205,81 +250,71 @@ class _FlexiblePhoneFieldState extends State<FlexiblePhoneField>
 
   /// Standard text form field used in multiple styles
   Widget _buildTextFormField({String? hintText, Widget? prefixIcon}) {
-    return TextFormField(
+    final effectiveDecoration =
+        widget.inputDecoration ??
+        CustomInputDecorations.build(
+          context: context,
+          label: effectiveLabel,
+          hint: effectiveHint,
+          prefixIcon: leadingIcon,
+          suffixIcon: widget.trailingIcon,
+          contentPadding: widget.contentPadding,
+        );
+    final boxDecoration =
+        widget.decoration ??
+        BoxDecoration(
+          border: Border.all(color: Colors.grey),
+          borderRadius: BorderRadius.circular(8),
+        );
+
+    final effectiveInputFormatters = [
+      FilteringTextInputFormatter.digitsOnly,
+      LengthLimitingTextInputFormatter(10),
+    ];
+
+    return CustomTextField(
+      maxLines: widget.maxLines,
+      decoration: boxDecoration,
+      initialValue: widget.initialValue,
+      obscureText: widget.obscureText,
+      label: effectiveLabel,
+      hint: effectiveHint,
       controller: widget.controller,
-      focusNode: widget.focusNode,
-      keyboardType: TextInputType.phone,
-      maxLength: widget.maxLength,
-      style: widget.textStyle,
-      onFieldSubmitted: (_) => _handleSubmit(),
-      autovalidateMode: AutovalidateMode.onUserInteraction,
+      keyboardType: widget.keyboardType,
+      textInputAction: widget.textInputAction,
+      leadingIcon: leadingIcon,
+      trailingIcon: widget.trailingIcon,
+      validator: (value) {
+        return _validatePhone(value);
+      },
       onChanged: (value) {
-        if (widget.onPhoneNumberChanged != null && value.isNotEmpty) {
+        if (widget.onChanged != null && value.isNotEmpty) {
           final formattedNumber = _phoneValidator.toE164Format(
             value,
             _selectedCountryCode,
           );
-          widget.onPhoneNumberChanged!(formattedNumber);
+          widget.onChanged!(formattedNumber);
         }
       },
-      validator: (value) => _validatePhone(value),
-      inputFormatters: [
-        FilteringTextInputFormatter.digitsOnly,
-        LengthLimitingTextInputFormatter(10),
-      ],
-      decoration:
-          widget.decoration ??
-          InputDecoration(
-            hintText: hintText ?? widget.hintText,
-            counterText: '',
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 16,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _borderColor),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: _borderColor),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary,
-                width: 2,
-              ),
-            ),
-            errorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.error,
-              ),
-            ),
-            focusedErrorBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.error,
-                width: 2,
-              ),
-            ),
-            prefixIcon: prefixIcon,
-            suffixIcon:
-                widget.controller.text.isNotEmpty
-                    ? IconButton(
-                      icon: const Icon(Icons.clear, size: 18),
-                      onPressed: () {
-                        widget.controller.clear();
-                        if (widget.onPhoneNumberChanged != null) {
-                          widget.onPhoneNumberChanged!('');
-                        }
-                      },
-                      color: Colors.grey[600],
-                      splashRadius: 20,
-                    )
-                    : null,
-          ),
+      onFieldSubmitted: (p0) {
+        widget.onFieldSubmitted?.call(p0);
+      },
+      onTap: () {
+        widget.onTap?.call();
+      },
+      enabled: widget.enabled,
+      focusNode: widget.focusNode,
+      inputDecoration: effectiveDecoration,
+      textCapitalization: widget.textCapitalization,
+      maxLength: widget.maxLength,
+      readOnly: widget.readOnly,
+      cursorColor: widget.cursorColor ?? Theme.of(context).primaryColor,
+      textStyle: widget.textStyle,
+      autovalidateMode: widget.autovalidateMode,
+      inputFormatters: effectiveInputFormatters,
+      inputFormatterPattern: widget.inputFormatterPattern,
+      preventConsecutiveSpaces: widget.preventConsecutiveSpaces,
+      preventLeadingTrailingSpaces: widget.preventLeadingTrailingSpaces,
     );
   }
 

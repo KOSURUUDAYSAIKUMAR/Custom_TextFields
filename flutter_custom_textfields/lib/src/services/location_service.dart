@@ -9,7 +9,8 @@ class LocationService {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
+      if (permission != LocationPermission.whileInUse &&
+          permission != LocationPermission.always) {
         return null;
       }
     }
